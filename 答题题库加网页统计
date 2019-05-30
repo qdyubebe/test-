@@ -1,0 +1,175 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Thu May 30 22:02:32 2019
+
+@author: qqdyubebe
+"""
+
+import io
+import os
+import re 
+from aip import AipOcr
+from PIL import Image
+from io import BytesIO
+#from past.builtins import raw_input
+import requests
+import sys
+import io
+
+import urllib.parse
+import webbrowser
+import requests
+import base64
+import matplotlib.pyplot as plt
+from PIL import Image
+import os 
+__author__ = 'admin'
+ 
+'''
+    这就是可答题辅助，我还不能让他自动答题，如果自动答题的话效率太低
+'''
+ 
+#   解决 UnicodeEncodeError: 'gbk' codec can't encode character '\xXX' in position XX报错
+#sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='gb18030')
+ 
+ 
+def pull_screenshot(picname):
+    #   adb驱动截取屏幕，并将图片上传至本地
+    os.system("adb shell screencap -p /sdcard/autojump.png")
+    os.system("adb pull /sdcard/autojump.png .")
+    #   打开图片
+    o = Image.open('autojump.png')
+    
+    #   获取问题、答案的矩形区域
+    new_img = o.crop((50, 350, 1000, 1560))
+    plt.imshow(new_img )
+    plt.show()#显示所截屏的内容
+    #answer_img = o.crop((50, 560, 650, 1520))
+    #plt.imshow(answer_img)
+    #plt.show()#显示所截屏的内容
+    #   将截取的问题同答案合并
+    #new_img = Image.new('RGBA', (820, 965))
+    #new_img.paste(question_img, (0, 0, 820, 200))
+    #new_img.paste(answer_img, (0, 200, 820, 965))
+    #   创建二进制数据流
+    #new_img_fb = BytesIO()
+    #   将合并后的图片的数据写入内存
+    #new_img.save(new_img_fb, 'png')
+    #   返回数据
+    #imgByteArr = io.BytesIO()
+    #question_img.save(imgByteArr, format='PNG')
+    #image_data = imgByteArr.getvalue()
+    #question_img = o.crop((50, 350, 500, 560))
+    #answer_img = o.crop((50, 560, 650, 1520))
+    #   将截取的问题同答案合并
+    '''question_img = o.crop((50, 350, 500, 560))
+    answer_img = o.crop((50, 560, 650, 1520))
+    new_img = Image.new('RGBA', (820, 965))
+    plt.imshow(new_img)
+    plt.show()#显示所截屏的内容
+    new_img.paste(question_img, (0, 0, 820, 200))
+    plt.imshow(new_img)
+    plt.show()#显示所截new_img屏的内容
+    new_img.paste(answer_img, (0, 200, 820, 965))
+    plt.imshow(new_img)
+    plt.show()#显示所截屏的内容
+    '''#   创建二进制数据流
+    new_img_fb = BytesIO()
+    #   将合并后的图片的数据写入内存
+    new_img.save(new_img_fb, 'png')
+    #   返回数据
+    return new_img_fb
+    
+ 
+def get_content(new_img_fb):
+    #   百度的API(自行前往百度云注册）
+    APP_ID = '16284865'
+    API_KEY = 'QmM7uuh0EGqEVzNGuEdYEwWG'
+    SECRET_KEY = 'chiDTMmmLHiGA78igeocAEU5nFAICZYb'
+    #   调用百度的通用文字识别
+    client = AipOcr(APP_ID, API_KEY, SECRET_KEY)
+    #   获取数据流中的内容，是个字典的形式
+    content = client.basicGeneral(new_img_fb.getvalue())
+    #print(content)#返回的是JHON数据
+    return content
+ 
+def check_result(content):
+    #   获取所有文字信息(问题和答案),为列表形式
+    topic = content.get('words_result')
+    #print(topic)#获取键值words_result的数据
+    #   初始化字符串
+    question = ''
+    #   识别正常的情况下，后四个元素是答案，则第一位至倒数第四位就是问题
+    for i in topic[:-1]:
+        #   拼接成“问题”(列表中每个元素又是一个字典)
+        question += i.get('words')
+    question=question[0:question.rfind('(出题单位', 1) ]
+    print('题目是')
+    print(question)
+    file=(r'C:\Users\qqdyubebe\Desktop\125.txt')
+    w1 = question[0:6]#取题目前三个字
+    w2 = '\\n'
+    f = open(file, 'r')
+    buff = f.read()
+    pat = re.compile(w1 + '(.*?)' + w2, re.S)
+    result1 = pat.findall(buff)
+    print('题库中后半段的题目是')
+    print(result1)
+    f=open(r'C:\Users\qqdyubebe\Desktop\125.txt')
+    l=f.readlines()
+    for line in l:
+        if w1 in line:
+            print ('题库中的题目是')
+            print (line)
+            break            #打印cc出第一次出现的那行文字,结束当前的循环
+        else:
+            continue
+    f.close()
+    #   初始化列表
+    answers = []
+    #   识别正常的情况下，后四个元素是答案
+    for i in topic[-4:]:
+        #   存储答案进列表
+        answers.append(i.get('words'))
+    print('答案选项是')
+    print(answers)
+    #   百度一下，你就知道的网址
+    url = 'https://www.baidu.com/s'
+    #   headers中是以字典的形式存储的，不能缺少键和值，所以'User-Agent'要作为键存在
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko)'
+                      ' Chrome/51.0.2704.106 Safari/537.36'
+    }
+    #   可以尝试观察下百度搜索问题时的网址内容，其中就包含‘wd’
+    data = {
+        'wd': question
+    }
+    #   这里涉及到爬虫时的知识，获取网页内容
+    res = requests.get(url, params=data, headers=headers)
+    res.encoding = 'utf-8'
+    html = res.text
+    
+    for i in range(len(answers)):
+        #   将网页中各个答案的计数也存入列表中
+        answers[i] = (html.count(answers[i]), answers[i])
+    #   将列表倒序
+    answers.sort(reverse=True)
+    return answers
+ 
+ 
+def run():
+    count = 0
+    while True:
+        #   按下回车键才可继续，简单的的题可以手动答，难得题可以使用该工具
+        press_key = input(u"输入回车键以便继续：")
+        new_img_fb = pull_screenshot(str(count))
+        content = get_content(new_img_fb)
+        answers = check_result(content)
+        print('统计答案排序')
+        print(answers)
+        #   计数自增1，方便存储图片
+        count += 1
+ 
+if __name__ == '__main__':
+    
+    run()
